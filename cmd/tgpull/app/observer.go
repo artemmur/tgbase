@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"tgbase/post"
+
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
 	"github.com/gotd/td/telegram/updates"
@@ -17,10 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Observer struct {
-}
-
-func StartObserver(ctx context.Context) error {
+func StartObserver(ctx context.Context, root string) error {
 	log, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
 	defer func() { _ = log.Sync() }()
 
@@ -65,12 +64,17 @@ func StartObserver(ctx context.Context) error {
 
 	// Setup message update handlers.
 	d.OnNewChannelMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateNewChannelMessage) error {
-		log.Info("Channel message", zap.Any("message", update.Message))
-		return nil
-	})
-	d.OnNewMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateNewMessage) error {
-		log.Info("Message", zap.Any("message", update.Message))
-		log.Info(update.Message.Decode())
+		msg, ok := update.Message.(*tg.Message)
+		if !ok {
+			return nil
+		}
+
+		p := &post.Post{
+			Date:    msg.Date,
+			Message: msg.Message,
+		}
+
+		post.FlushPost(p, root)
 		return nil
 	})
 
