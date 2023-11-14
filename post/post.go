@@ -6,12 +6,13 @@ import (
 )
 
 type Post struct {
-	Date    int
-	Message string
+	Date      int
+	Message   string
+	ChannelID int64
 }
 
 func FlushPost(p *Post, destFolder string) error {
-	f, err := os.CreateTemp(destFolder, "*.txt")
+	f, err := os.CreateTemp(destFolder, "*.json")
 	if err != nil {
 		return err
 	}

@@ -4,7 +4,6 @@ go 1.21.0
 
 require (
 	github.com/gotd/td v0.89.0
-	github.com/gotd/td/examples v0.0.0-20231110085401-5fa569e4e274
 	github.com/pkg/errors v0.9.1
 	go.uber.org/zap v1.26.0
 )
@@ -26,7 +25,6 @@ require (
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/term v0.13.0 // indirect
 	nhooyr.io/websocket v1.8.10 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )

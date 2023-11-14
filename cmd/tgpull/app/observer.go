@@ -74,6 +74,11 @@ func StartObserver(ctx context.Context, root string) error {
 			Message: msg.Message,
 		}
 
+		peer, ok := msg.PeerID.(*tg.PeerChannel)
+		if ok {
+			p.ChannelID = peer.ChannelID
+		}
+
 		post.FlushPost(p, root)
 		return nil
 	})
