@@ -1,2 +1,15 @@
-# tgbase
-telegram news collection
+# TGBase
+
+## Описание
+
+PoC по сбору новостей из телеграм в ClickHouse.
+
+## Особенности
+
+- Обработка сообщений батчами.
+- Имитация сетевого разрыва между сервисами (передача данных через диск).
+- Работа с telegram по TDLib API.
+
+## Архитектрура
+
+<img src="./arch.jpeg" alt="drawing" style="width:500px;"/>
