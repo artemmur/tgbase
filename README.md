@@ -12,4 +12,4 @@ PoC по сбору новостей из телеграм в ClickHouse.
 
 ## Архитектрура
 
-<img src="./arch.jpeg" alt="drawing" style="width:500px;"/>
+<img src="./arch.jpeg" alt="drawing" style="width:800px;"/>
