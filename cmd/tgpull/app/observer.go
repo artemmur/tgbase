@@ -3,11 +3,14 @@ package app
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
+	"time"
 
-	"tgbase/post"
+	"tgbase"
 
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/telegram/auth"
@@ -18,6 +21,51 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+func flushPost(destFolder string, timeout time.Duration, size int) func(p *tgbase.Post) {
+	collection := make([]tgbase.Post, 0, size)
+	save := func() error {
+		defer func() {
+			collection = make([]tgbase.Post, 0, size)
+		}()
+
+		f, err := os.CreateTemp(destFolder, "*.json")
+		if err != nil {
+			return err
+		}
+
+		if err := json.NewEncoder(f).Encode(&collection); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	tick := time.NewTicker(timeout)
+	pipe := make(chan tgbase.Post)
+	go func() {
+		for {
+			select {
+			case <-tick.C:
+				if len(collection) > 0 {
+					if err := save(); err != nil {
+						slog.Error(err.Error())
+					}
+				}
+
+			case newPost := <-pipe:
+				collection = append(collection, newPost)
+				if len(collection) == size {
+					save()
+				}
+			}
+		}
+	}()
+
+	return func(p *tgbase.Post) {
+		tick.Reset(timeout)
+		pipe <- *p
+	}
+}
 
 func StartObserver(ctx context.Context, root string) error {
 	log, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
@@ -62,6 +110,7 @@ func StartObserver(ctx context.Context, root string) error {
 		return err
 	}
 
+	fp := flushPost(root, 3*time.Second, 400)
 	// Setup message update handlers.
 	d.OnNewChannelMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateNewChannelMessage) error {
 		msg, ok := update.Message.(*tg.Message)
@@ -69,9 +118,10 @@ func StartObserver(ctx context.Context, root string) error {
 			return nil
 		}
 
-		p := &post.Post{
-			Date:    msg.Date,
-			Message: msg.Message,
+		p := &tgbase.Post{
+			ID:        int64(msg.GroupedID),
+			CreatedAt: time.UnixMicro(int64(msg.Date)),
+			Message:   msg.Message,
 		}
 
 		peer, ok := msg.PeerID.(*tg.PeerChannel)
@@ -79,7 +129,7 @@ func StartObserver(ctx context.Context, root string) error {
 			p.ChannelID = peer.ChannelID
 		}
 
-		post.FlushPost(p, root)
+		fp(p)
 		return nil
 	})
 

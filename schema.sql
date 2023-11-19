@@ -1,4 +1,4 @@
-CREATE TABLE github_events_raw
+CREATE TABLE tgbase_posts_raw
 (
     id  Int64,
     ts  DateTime32,
