@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 	"tgbase"
 
 	"github.com/fsnotify/fsnotify"
@@ -15,6 +16,8 @@ func readPostsFromFile(filename string) ([]tgbase.Post, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer data.Close()
+
 	posts := make([]tgbase.Post, 0)
 	if err := json.NewDecoder(data).Decode(&posts); err != nil {
 		return nil, err
@@ -30,28 +33,47 @@ func ListenForPosts(ctx context.Context, root string, svc *Service) {
 	}
 	defer watcher.Close()
 
+	process := func(filename string) {
+		posts, err := readPostsFromFile(filename)
+		if err != nil {
+			svc.logger.ErrorContext(ctx, err.Error())
+			return
+		}
+		svc.batches <- posts
+
+		if err := os.Remove(filename); err != nil {
+			svc.logger.ErrorContext(ctx, err.Error())
+			return
+		}
+	}
+
 	// Start listening for events.
 	go func() {
+	OUTER:
 		for {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
 					return
 				}
-				log.Println("event:", event)
 				if event.Has(fsnotify.Write) {
-					posts, err := readPostsFromFile(event.Name)
-					if err != nil {
-						svc.Logger.ErrorContext(ctx, err.Error())
-						break
-					}
-					svc.batches <- posts
+					process(filepath.Join(root, event.Name))
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
 				log.Println("error:", err)
+			default:
+				dir, err := os.ReadDir(root)
+				if err != nil {
+					svc.logger.ErrorContext(ctx, err.Error())
+					break
+				}
+				if len(dir) == 0 {
+					break OUTER
+				}
+				process(filepath.Join(root, dir[0].Name()))
 			}
 		}
 	}()

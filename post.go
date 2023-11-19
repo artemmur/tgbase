@@ -3,8 +3,8 @@ package tgbase
 import "time"
 
 type Post struct {
-	ID        int64
+	ChannelID int64
+	MessageID int64
 	CreatedAt time.Time
 	Message   string
-	ChannelID int64
 }

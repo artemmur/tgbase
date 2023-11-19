@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"tgbase/cmd/tgstash/app"
+
+	"github.com/ClickHouse/ch-go"
 )
 
 var (
@@ -35,13 +37,27 @@ func main() {
 
 	lg := slog.Default()
 
-	svc := &app.Service{
-		Logger:         lg,
-		ClickHouseDB:   "",
-		ClickHouseAddr: "localhost:9000",
+	svc := app.NewService(lg, &app.ConfigSvc{
+		ClickHouseDB:   clickHouseDB,
+		ClickHouseAddr: clickHouseAddr,
+	})
+
+	conn, err := ch.Dial(ctx, ch.Options{
+		Database: clickHouseDB,
+		Address:  clickHouseAddr,
+		User:     os.Getenv("CLICKHOUSE_USER"),
+		Password: os.Getenv("CLICKHOUSE_PASSWORD"),
+	})
+	if err != nil {
+		panic(err)
 	}
+	if err := conn.Ping(ctx); err != nil {
+		panic(err)
+	}
+	conn.Close()
 
 	go app.ListenForPosts(ctx, root, svc)
 	go app.PushToDatabase(ctx, svc)
-	<-make(chan struct{})
+
+	<-ctx.Done()
 }

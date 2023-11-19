@@ -17,9 +17,6 @@ import (
 	"github.com/gotd/td/telegram/updates"
 	updhook "github.com/gotd/td/telegram/updates/hook"
 	"github.com/gotd/td/tg"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func flushPost(destFolder string, timeout time.Duration, size int) func(p *tgbase.Post) {
@@ -68,13 +65,9 @@ func flushPost(destFolder string, timeout time.Duration, size int) func(p *tgbas
 }
 
 func StartObserver(ctx context.Context, root string) error {
-	log, _ := zap.NewDevelopment(zap.IncreaseLevel(zapcore.InfoLevel), zap.AddStacktrace(zapcore.FatalLevel))
-	defer func() { _ = log.Sync() }()
-
 	d := tg.NewUpdateDispatcher()
 	gaps := updates.New(updates.Config{
 		Handler: d,
-		Logger:  log.Named("gaps"),
 	})
 
 	// Authentication flow handles authentication process, like prompting for code and 2FA password.
@@ -100,7 +93,6 @@ func StartObserver(ctx context.Context, root string) error {
 	// 	SESSION_FILE:   path to session file
 	// 	SESSION_DIR:    path to session directory, if SESSION_FILE is not set
 	client, err := telegram.ClientFromEnvironment(telegram.Options{
-		Logger:        log,
 		UpdateHandler: gaps,
 		Middlewares: []telegram.Middleware{
 			updhook.UpdateHook(gaps.Handle),
@@ -119,8 +111,8 @@ func StartObserver(ctx context.Context, root string) error {
 		}
 
 		p := &tgbase.Post{
-			ID:        int64(msg.GroupedID),
-			CreatedAt: time.UnixMicro(int64(msg.Date)),
+			MessageID: int64(msg.ID),
+			CreatedAt: time.Unix(int64(msg.Date), 0),
 			Message:   msg.Message,
 		}
 
@@ -136,18 +128,18 @@ func StartObserver(ctx context.Context, root string) error {
 	return client.Run(ctx, func(ctx context.Context) error {
 		// Perform auth if no session is available.
 		if err := client.Auth().IfNecessary(ctx, flow); err != nil {
-			return errors.Wrap(err, "auth")
+			return fmt.Errorf("%w: %v", err, "auth")
 		}
 
 		// Fetch user info.
 		user, err := client.Self(ctx)
 		if err != nil {
-			return errors.Wrap(err, "call self")
+			return fmt.Errorf("%w: %v", err, "call self")
 		}
 
 		return gaps.Run(ctx, client.API(), user.ID, updates.AuthOptions{
 			OnStart: func(ctx context.Context) {
-				log.Info("Gaps started")
+				slog.Info("Gaps started")
 			},
 		})
 	})
