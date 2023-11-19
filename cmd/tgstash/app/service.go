@@ -19,7 +19,7 @@ type ConfigSvc struct {
 func NewService(lg *slog.Logger, cfg *ConfigSvc) *Service {
 	return &Service{
 		cfg:     cfg,
-		batches: make(chan []tgbase.Post),
+		batches: make(chan []tgbase.Post, 5),
 		logger:  lg,
 	}
 }

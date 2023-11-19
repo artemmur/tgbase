@@ -49,8 +49,8 @@ func ListenForPosts(ctx context.Context, root string, svc *Service) {
 
 	// Start listening for events.
 	go func() {
-	OUTER:
 		for {
+		OUTER:
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
